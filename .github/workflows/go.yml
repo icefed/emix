@@ -25,7 +25,7 @@ jobs:
       run: make build
 
     - name: Test
-      run: make test
+      run: make cover
 
     - name: Codecov
       uses: codecov/codecov-action@v4.0.1

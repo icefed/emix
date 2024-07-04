@@ -16,6 +16,10 @@ build: tidy
 test: tidy
 	@go test -v ./...
 
+.PHONY: cover
+cover: tidy
+	@go test -v ./... -coverprofile=cover.out
+
 .PHONY: install
 install: build
 	@cp bin/emix ~/bin/
