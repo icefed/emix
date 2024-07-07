@@ -25,10 +25,11 @@ type DomixOptions struct {
 	// 0: standard, no encryption
 	// 1: encrypt file info
 	// 2: encrypt file info and content
-	MixType int
-	Exclude string
-	Silence bool
-	Output  string
+	MixType  int
+	KeepName bool
+	Exclude  string
+	Silence  bool
+	Output   string
 
 	source      string
 	sourceIsDir bool
@@ -52,12 +53,13 @@ func newCmdDomix() *cobra.Command {
 
 	cmd.Flags().SortFlags = false
 	cmd.Flags().IntVarP(&o.MixType, "type", "t", 0, "Mix type. 0: standard, 1: encrypt file info, 2: encrypt file info and content.")
+	cmd.Flags().BoolVarP(&o.KeepName, "keep-name", "k", false, "Keep original name. Default is false.")
 	cmd.Flags().BoolVarP(&o.Password, "password", "p", false, "Use password to encrypt, max length is 16 bytes. Conflicts with --credential-file and --embed-password.")
 	cmd.Flags().StringVar(&o.CredentialFile, "credential-file", "", "Use a credential file as password. Conflicts with --password and --embed-password.")
 	cmd.Flags().BoolVar(&o.EmbedPassword, "embed-password", false, "Embed password to file header, password will be generated. Conflicts with --password and --credential-file.")
-	cmd.Flags().StringVarP(&o.Output, "output", "o", "", "Output directory, default is emix_%datetime(format: 2006-01-02 15.04.05).")
+	cmd.Flags().StringVarP(&o.Output, "output", "o", "", "Output directory. Default use emix_%datetime(format: 2006-01-02_15-04-05).")
 	// cmd.Flags().StringVar(&o.Exclude, "exclude", "", "Exclude files matching PATTERN if <path> is directory. eg: *.txt")
-	cmd.Flags().BoolVar(&o.Silence, "silence", false, "Silence all output")
+	cmd.Flags().BoolVar(&o.Silence, "silence", false, "Silence all output.")
 	return cmd
 }
 
@@ -116,7 +118,7 @@ func (o *DomixOptions) Validate(source string) error {
 	}
 	// check output
 	if o.Output == "" {
-		o.Output = fmt.Sprintf("emix_%s", time.Now().Format("2006-01-02 15.04.05"))
+		o.Output = fmt.Sprintf("emix_%s", time.Now().Format("2006-01-02_15-04-05"))
 	}
 	o.Output = filepath.Clean(o.Output)
 	outDirStat, err := os.Stat(o.Output)
@@ -144,18 +146,18 @@ func (o *DomixOptions) Run() error {
 			if info.IsDir() {
 				return nil
 			}
+			// TODO: check exclude pattern
 			// nonsupport file type: symlink, device...
 			if !info.Mode().IsRegular() {
 				return fmt.Errorf("not a regular file: %v", info.Name())
 			}
-			// TODO: check exclude pattern
 			// output
-			dest := filepath.Join(o.Output, strings.TrimPrefix(path, o.source))
-			err = os.MkdirAll(filepath.Dir(dest), 0755)
+			outDir := filepath.Join(o.Output, strings.TrimPrefix(filepath.Dir(path), o.source))
+			err = os.MkdirAll(outDir, 0755)
 			if err != nil {
 				return err
 			}
-			return o.EncryptFile(path, info, dest)
+			return o.EncryptFile(path, info, outDir)
 		})
 	}
 
@@ -163,12 +165,14 @@ func (o *DomixOptions) Run() error {
 	if err != nil {
 		return err
 	}
-	// output
-	dest := filepath.Join(o.Output, filepath.Base(o.source))
-	return o.EncryptFile(o.source, info, dest)
+	return o.EncryptFile(o.source, info, o.Output)
 }
 
-func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, dest string) error {
+func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, outDir string) error {
+	dest := filepath.Join(outDir, time.Now().Format("2006-01-02_15-04-05.000000")+".zip")
+	if o.KeepName {
+		dest = filepath.Join(outDir, srcInfo.Name())
+	}
 	if !o.Silence {
 		fmt.Fprint(os.Stdout, o.source, " -> ", dest, "\n")
 	}

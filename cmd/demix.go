@@ -109,14 +109,14 @@ func (o *DemixOptions) Run() error {
 			if info.IsDir() {
 				return nil
 			}
+			// TODO: check exclude pattern
 			// nonsupport file type: symlink, device...
 			if !info.Mode().IsRegular() {
 				return fmt.Errorf("not a regular file: %v", info.Name())
 			}
-			// TODO: check exclude pattern
 			// output
 			outDir := filepath.Join(o.Output, strings.TrimPrefix(filepath.Dir(path), o.source))
-			err = os.MkdirAll(filepath.Dir(outDir), 0755)
+			err = os.MkdirAll(outDir, 0755)
 			if err != nil {
 				return err
 			}
