@@ -7,8 +7,7 @@
 ### TODO
 
 - [ ] Add long usage
+- [ ] Readme
 - [ ] Read once when domix
-- [ ] Exclude pattern
 - [ ] More tests
 - [ ] Benchmarks
-- [ ] Readme

@@ -12,21 +12,25 @@ import (
 	"strings"
 	"time"
 
-	"github.com/icefed/emix"
+	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
+
+	"github.com/icefed/emix"
 )
 
 type DemixOptions struct {
 	// read password from stdin if Password is true
 	Password       bool
 	CredentialFile string
-	Silence        bool
 	Output         string
+	Excludes       []string
+	Silence        bool
 
 	source      string
 	sourceIsDir bool
 
-	password [16]byte
+	password      [16]byte
+	ignoreMatcher *ignore.GitIgnore
 }
 
 func newCmdDemix() *cobra.Command {
@@ -46,6 +50,7 @@ func newCmdDemix() *cobra.Command {
 	cmd.Flags().BoolVarP(&o.Password, "password", "p", false, "Use password to decrypt, max length is 16 bytes. Conflicts with --credential-file.")
 	cmd.Flags().StringVar(&o.CredentialFile, "credential-file", "", "Use a credential file as password. Conflicts with --password.")
 	cmd.Flags().StringVarP(&o.Output, "output", "o", "", "Output directory, default is emix_%datetime(format: 2006-01-02 15.04.05).")
+	cmd.Flags().StringSliceVarP(&o.Excludes, "excludes", "e", []string{".*"}, "Exclude files matching PATTERN if <path> is directory, gitignore style. default use `.*` to ignore hidden files. Multi patterns can be separated by comma.")
 	cmd.Flags().BoolVar(&o.Silence, "silence", false, "Silence all output")
 	return cmd
 }
@@ -96,6 +101,11 @@ func (o *DemixOptions) Validate(source string) error {
 	} else if !outDirStat.Mode().IsDir() {
 		return fmt.Errorf("output should be a directory")
 	}
+
+	// ignore
+	if len(o.Excludes) != 0 {
+		o.ignoreMatcher = ignore.CompileIgnoreLines(o.Excludes...)
+	}
 	return nil
 }
 
@@ -105,11 +115,17 @@ func (o *DemixOptions) Run() error {
 			if err != nil {
 				return err
 			}
-			// skip directory
+			// check exclude pattern
+			if o.ignoreMatcher != nil && o.ignoreMatcher.MatchesPath(path) {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			// skip directory path
 			if info.IsDir() {
 				return nil
 			}
-			// TODO: check exclude pattern
 			// nonsupport file type: symlink, device...
 			if !info.Mode().IsRegular() {
 				return fmt.Errorf("not a regular file: %v", info.Name())

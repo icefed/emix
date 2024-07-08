@@ -12,9 +12,11 @@ import (
 	"strings"
 	"time"
 
-	"github.com/icefed/emix"
+	ignore "github.com/sabhiram/go-gitignore"
 	"github.com/spf13/cobra"
 	"golang.org/x/term"
+
+	"github.com/icefed/emix"
 )
 
 type DomixOptions struct {
@@ -27,14 +29,15 @@ type DomixOptions struct {
 	// 2: encrypt file info and content
 	MixType  int
 	KeepName bool
-	Exclude  string
-	Silence  bool
 	Output   string
+	Excludes []string
+	Silence  bool
 
 	source      string
 	sourceIsDir bool
 
-	password [16]byte
+	password      [16]byte
+	ignoreMatcher *ignore.GitIgnore
 }
 
 func newCmdDomix() *cobra.Command {
@@ -58,7 +61,7 @@ func newCmdDomix() *cobra.Command {
 	cmd.Flags().StringVar(&o.CredentialFile, "credential-file", "", "Use a credential file as password. Conflicts with --password and --embed-password.")
 	cmd.Flags().BoolVar(&o.EmbedPassword, "embed-password", false, "Embed password to file header, password will be generated. Conflicts with --password and --credential-file.")
 	cmd.Flags().StringVarP(&o.Output, "output", "o", "", "Output directory. Default use emix_%datetime(format: 2006-01-02_15-04-05).")
-	// cmd.Flags().StringVar(&o.Exclude, "exclude", "", "Exclude files matching PATTERN if <path> is directory. eg: *.txt")
+	cmd.Flags().StringSliceVarP(&o.Excludes, "excludes", "e", []string{".*"}, "Exclude files matching PATTERN if <path> is directory, gitignore style. default use `.*` to ignore hidden files. Multi patterns can be separated by comma.")
 	cmd.Flags().BoolVar(&o.Silence, "silence", false, "Silence all output.")
 	return cmd
 }
@@ -133,6 +136,11 @@ func (o *DomixOptions) Validate(source string) error {
 	} else if !outDirStat.Mode().IsDir() {
 		return fmt.Errorf("output should be a directory")
 	}
+
+	// ignore
+	if len(o.Excludes) != 0 {
+		o.ignoreMatcher = ignore.CompileIgnoreLines(o.Excludes...)
+	}
 	return nil
 }
 
@@ -142,11 +150,17 @@ func (o *DomixOptions) Run() error {
 			if err != nil {
 				return err
 			}
-			// skip directory
+			// check exclude pattern
+			if o.ignoreMatcher != nil && o.ignoreMatcher.MatchesPath(path) {
+				if info.IsDir() {
+					return filepath.SkipDir
+				}
+				return nil
+			}
+			// skip directory path
 			if info.IsDir() {
 				return nil
 			}
-			// TODO: check exclude pattern
 			// nonsupport file type: symlink, device...
 			if !info.Mode().IsRegular() {
 				return fmt.Errorf("not a regular file: %v", info.Name())
