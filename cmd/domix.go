@@ -197,27 +197,6 @@ func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, outDir strin
 		CreateTime: uint64(getFileCreateTime(srcInfo).UnixNano()),
 		ModifyTime: uint64(srcInfo.ModTime().UnixNano()),
 	}
-
-	targetFile, err := os.Create(dest)
-	if err != nil {
-		return err
-	}
-	defer targetFile.Close()
-
-	f, err := os.Open(src)
-	if err != nil {
-		return fmt.Errorf("Open source file error: %v", err)
-	}
-	defer f.Close()
-
-	// hash file
-	hash := sha256.New()
-	if _, err := io.Copy(hash, f); err != nil {
-		return fmt.Errorf("Read file error: %v", err)
-	}
-	fileHash := hash.Sum(nil)
-	copy(efi.FileContentHash[:], fileHash)
-
 	// header
 	emixHeader := &emix.EmixHeader{
 		EmbedPassword: o.EmbedPassword,
@@ -234,15 +213,52 @@ func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, outDir strin
 		copy(emixHeader.Password[:], o.password[:])
 	}
 
-	// reset file position
-	f.Seek(0, io.SeekStart)
+	targetFile, err := os.Create(dest)
+	if err != nil {
+		return err
+	}
+	defer targetFile.Close()
 
+	f, err := os.Open(src)
+	if err != nil {
+		return fmt.Errorf("Open source file error: %v", err)
+	}
+	defer f.Close()
+
+	// hash source file
+	hash := sha256.New()
+	// use tee reader
+	teef := io.TeeReader(f, hash)
+
+	// set file position to target file data
+	targetFile.Seek(int64(emix.ZipHeaderLength()+emixHeader.EncodedLength()), io.SeekStart)
+
+	// write file content first
+	if emixHeader.EncryptData {
+		cipher, err := emix.NewAESXTS(o.password)
+		if err != nil {
+			return err
+		}
+		err = emix.EncryptContent(cipher, teef, targetFile)
+		if err != nil {
+			return fmt.Errorf("Write encrypted file content error: %v", err)
+		}
+	} else {
+		if _, err := io.Copy(targetFile, teef); err != nil {
+			return fmt.Errorf("Write file content error: %v", err)
+		}
+	}
+
+	// reset file position
+	targetFile.Seek(0, io.SeekStart)
 	// write zip header
 	_, err = targetFile.Write(emix.ZipHeader())
 	if err != nil {
 		return fmt.Errorf("Write zip header error: %v", err)
 	}
 	// write emix header
+	fileHash := hash.Sum(nil)
+	copy(emixHeader.FileInfo.FileContentHash[:], fileHash)
 	encodedHeader, err := emixHeader.MarshalBinary()
 	if err != nil {
 		return fmt.Errorf("Encode emix header error: %v", err)
@@ -251,22 +267,7 @@ func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, outDir strin
 	if err != nil {
 		return fmt.Errorf("Write emix header error: %v", err)
 	}
-	// write file content
-	// TODO: combind hash and read
-	if emixHeader.EncryptData {
-		cipher, err := emix.NewAESXTS(o.password)
-		if err != nil {
-			return err
-		}
-		err = emix.EncryptContent(cipher, f, targetFile)
-		if err != nil {
-			return fmt.Errorf("Write encrypted file content error: %v", err)
-		}
-	} else {
-		if _, err := io.Copy(targetFile, f); err != nil {
-			return fmt.Errorf("Write file content error: %v", err)
-		}
-	}
+
 	return nil
 }
 

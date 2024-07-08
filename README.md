@@ -8,6 +8,5 @@
 
 - [ ] Add long usage
 - [ ] Readme
-- [ ] Read once when domix
 - [ ] More tests
 - [ ] Benchmarks
