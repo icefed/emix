@@ -28,6 +28,8 @@ func newRootCommand() *cobra.Command {
 	// Top Level Commands
 	command.AddCommand(newCmdDomix())
 	command.AddCommand(newCmdDemix())
+	command.AddCommand(newCmdLs())
+	command.AddCommand(newCmdStat())
 
 	// Other Commands
 	command.AddCommand(newCmdVersion())

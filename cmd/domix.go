@@ -44,7 +44,7 @@ func newCmdDomix() *cobra.Command {
 	o := &DomixOptions{}
 	cmd := &cobra.Command{
 		Use:     "domix <path>",
-		Short:   "domix the files of the path.",
+		Short:   "do-mix the files of the path.",
 		Long:    ``,
 		GroupID: "general",
 		Args:    cobra.ExactArgs(1),

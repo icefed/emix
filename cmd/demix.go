@@ -37,7 +37,7 @@ func newCmdDemix() *cobra.Command {
 	o := &DemixOptions{}
 	cmd := &cobra.Command{
 		Use:     "demix <path>",
-		Short:   "demix the files of the path.",
+		Short:   "de-mix the files of the path.",
 		Long:    ``,
 		GroupID: "general",
 		Args:    cobra.ExactArgs(1),
