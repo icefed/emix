@@ -90,8 +90,8 @@ func GeneratePasswordFromFile(filePath string) ([]byte, error) {
 	return password, nil
 }
 
-// GeneratePassword generate random length-byte password
-func GeneratePassword(length int) ([]byte, error) {
+// GenerateRandomPassword generate random length-byte password
+func GenerateRandomPassword(length int) ([]byte, error) {
 	password := make([]byte, length)
 	_, err := rand.Read(password)
 	if err != nil {

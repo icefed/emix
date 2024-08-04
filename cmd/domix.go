@@ -209,7 +209,13 @@ func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, outDir strin
 	case 2:
 		emixHeader.EncryptData = true
 	}
-	if len(o.password) > 0 {
+	if o.EmbedPassword {
+		password, err := emix.GenerateRandomPassword(16)
+		if err != nil {
+			return err
+		}
+		copy(emixHeader.Password[:], password)
+	} else {
 		copy(emixHeader.Password[:], o.password[:])
 	}
 
