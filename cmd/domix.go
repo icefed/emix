@@ -102,7 +102,7 @@ func (o *DomixOptions) Validate(source string) error {
 		}
 
 		// verify password
-		if err = inputPasswordAgain(password); err != nil {
+		if err = confirmPassword(password); err != nil {
 			return err
 		}
 
@@ -278,7 +278,7 @@ func (o *DomixOptions) EncryptFile(src string, srcInfo os.FileInfo, outDir strin
 }
 
 func inputPassword() ([]byte, error) {
-	fmt.Fprint(os.Stderr, "Enter password: ")
+	fmt.Fprint(os.Stderr, "Enter the password: ")
 	password, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
@@ -290,8 +290,8 @@ func inputPassword() ([]byte, error) {
 	return password, nil
 }
 
-func inputPasswordAgain(password []byte) error {
-	fmt.Fprint(os.Stderr, "Enter password again: ")
+func confirmPassword(password []byte) error {
+	fmt.Fprint(os.Stderr, "Confirm the password: ")
 	passwordAgain, err := term.ReadPassword(int(os.Stdin.Fd()))
 	fmt.Fprintln(os.Stderr)
 	if err != nil {
