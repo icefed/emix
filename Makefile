@@ -1,5 +1,6 @@
 PROJECT := github.com/icefed/emix
 VERSION := $(shell git describe --tags --always --dirty)
+LOCALBIN ?= ~/bin
 
 all: build
 
@@ -22,7 +23,7 @@ cover: tidy
 
 .PHONY: install
 install: build
-	@cp bin/emix ~/bin/
+	@cp bin/* $(LOCALBIN)
 
 .PHONY: clean
 clean:
